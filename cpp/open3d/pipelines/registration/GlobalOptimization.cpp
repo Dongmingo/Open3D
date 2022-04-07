@@ -42,6 +42,7 @@ namespace open3d {
 namespace pipelines {
 namespace registration {
 
+
 /// Definition of linear operators used for computing Jacobian matrix.
 /// If the relative transform of the two geometry is reasonably small,
 /// they can be approximated as below linearized form
@@ -93,6 +94,8 @@ static const std::vector<Eigen::Matrix4d, utility::Matrix4d_allocator>
 /// Alternatively, explicit representation that uses quaternion can be used
 /// here to replace this function. Refer to linearizeOplus() in
 /// https://github.com/RainerKuemmerle/g2o/blob/master/g2o/types/slam3d/edge_se3.cpp
+
+
 static inline Eigen::Vector6d GetLinearized6DVector(
         const Eigen::Matrix4d &input) {
     Eigen::Vector6d output;
@@ -206,11 +209,13 @@ static Eigen::VectorXd ComputeZeta(const PoseGraph &pose_graph) {
 ///
 /// This function focuses the case that every edge has two nodes (not hyper
 /// graph) so we have two Jacobian matrices from one constraint.
-static std::tuple<Eigen::MatrixXd, Eigen::VectorXd> ComputeLinearSystem(
+static std::tuple<Eigen::SparseMatrix<double>, Eigen::VectorXd> ComputeLinearSystem(
         const PoseGraph &pose_graph, const Eigen::VectorXd &zeta) {
     int n_nodes = (int)pose_graph.nodes_.size();
     int n_edges = (int)pose_graph.edges_.size();
-    Eigen::MatrixXd H(n_nodes * 6, n_nodes * 6);
+    Eigen::SparseMatrix<double> H(n_nodes * 6, n_nodes * 6);
+    int reserve_nodes = (std::max)(n_nodes * 6, 600);
+    H.reserve(Eigen::VectorXi::Constant(n_nodes * 6,reserve_nodes));
     Eigen::VectorXd b(n_nodes * 6);
     H.setZero();
     b.setZero();
@@ -228,17 +233,21 @@ static std::tuple<Eigen::MatrixXd, Eigen::VectorXd> ComputeLinearSystem(
         Eigen::Matrix6d JtT_Info = Jt.transpose() * t.information_;
         Eigen::Vector6d eT_Info = e.transpose() * t.information_;
         double line_process_iter = t.confidence_;
+        Eigen::Matrix6d Jii = line_process_iter * JsT_Info * Js;
+        Eigen::Matrix6d Jij = line_process_iter * JsT_Info * Jt;
+        Eigen::Matrix6d Jji = line_process_iter * JtT_Info * Js;
+        Eigen::Matrix6d Jjj = line_process_iter * JtT_Info * Jt;
 
         int id_i = t.source_node_id_ * 6;
         int id_j = t.target_node_id_ * 6;
-        H.block<6, 6>(id_i, id_i).noalias() +=
-                line_process_iter * JsT_Info * Js;
-        H.block<6, 6>(id_i, id_j).noalias() +=
-                line_process_iter * JsT_Info * Jt;
-        H.block<6, 6>(id_j, id_i).noalias() +=
-                line_process_iter * JtT_Info * Js;
-        H.block<6, 6>(id_j, id_j).noalias() +=
-                line_process_iter * JtT_Info * Jt;
+        for (int r_idx = 0; r_idx < 6; r_idx++){
+            for (int c_idx =0; c_idx < 6; c_idx++){
+                H.coeffRef(id_i+r_idx, id_i+c_idx) += Jii(r_idx, c_idx);
+                H.coeffRef(id_i+r_idx, id_j+c_idx) += Jij(r_idx, c_idx);
+                H.coeffRef(id_j+r_idx, id_i+c_idx) += Jji(r_idx, c_idx);
+                H.coeffRef(id_j+r_idx, id_j+c_idx) += Jjj(r_idx, c_idx);
+            }
+        }
         b.block<6, 1>(id_i, 0).noalias() -=
                 line_process_iter * eT_Info.transpose() * Js;
         b.block<6, 1>(id_j, 0).noalias() -=
@@ -511,7 +520,7 @@ void GlobalOptimizationGaussNewton::OptimizePoseGraph(
     valid_edges_num =
             UpdateConfidence(pose_graph, zeta, line_process_weight, option);
 
-    Eigen::MatrixXd H;
+    Eigen::SparseMatrix<double> H;
     Eigen::VectorXd b;
     Eigen::VectorXd x = UpdatePoseVector(pose_graph);
 
@@ -532,9 +541,9 @@ void GlobalOptimizationGaussNewton::OptimizePoseGraph(
         Eigen::VectorXd delta(H.cols());
         bool solver_success = false;
 
-        // Solve H_LM @ delta == b using a sparse solver
+        // Solve H_LM @ delta == b using a Sparse solver
         std::tie(solver_success, delta) = utility::SolveLinearSystemPSD(
-                H, b, /*prefer_sparse=*/true, /*check_symmetric=*/false,
+                H, b, /*prefer_Sparse=*/true, /*check_symmetric=*/false,
                 /*check_det=*/false, /*check_psd=*/false);
 
         stop = stop || CheckRelativeIncrement(delta, x, criteria);
@@ -602,8 +611,11 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
     int valid_edges_num =
             UpdateConfidence(pose_graph, zeta, line_process_weight, option);
 
-    Eigen::MatrixXd H_I = Eigen::MatrixXd::Identity(n_nodes * 6, n_nodes * 6);
-    Eigen::MatrixXd H;
+    Eigen::SparseMatrix<double> H_I(n_nodes * 6, n_nodes * 6);
+    for (int i=0; i<H_I.cols(); i++) {
+        H_I.coeffRef(i, i) = 1;
+    }
+    Eigen::SparseMatrix<double> H;
     Eigen::VectorXd b;
     Eigen::VectorXd x = UpdatePoseVector(pose_graph);
 
@@ -629,14 +641,13 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
         timer_iter.Start();
         int lm_count = 0;
         do {
-            Eigen::MatrixXd H_LM = H + current_lambda * H_I;
-            Eigen::VectorXd delta(H_LM.cols());
+            Eigen::SparseMatrix<double> H_LM = H + current_lambda * H_I;
+            Eigen::VectorXd delta(n_nodes * 6);
             bool solver_success = false;
 
             // Solve H_LM @ delta == b using a sparse solver
-            std::tie(solver_success, delta) = utility::SolveLinearSystemPSD(
-                    H_LM, b, /*prefer_sparse=*/true, /*check_symmetric=*/false,
-                    /*check_det=*/false, /*check_psd=*/false);
+            std::tie(solver_success, delta) = utility::SolveLinearSystemSparse(
+                    H_LM, b);
 
             stop = stop || CheckRelativeIncrement(delta, x, criteria);
             if (!stop) {

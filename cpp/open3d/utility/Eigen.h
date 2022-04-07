@@ -27,7 +27,9 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <Eigen/Sparse>
 #include <Eigen/StdVector>
+
 #include <tuple>
 #include <vector>
 
@@ -72,6 +74,11 @@ Eigen::Matrix4d TransformVector6dToMatrix4d(const Eigen::Vector6d &input);
 /// Reference:
 /// https://github.com/qianyizh/ElasticReconstruction/blob/master/Matlab_Toolbox/Core/mrEvaluateRegistration.m
 Eigen::Vector6d TransformMatrix4dToVector6d(const Eigen::Matrix4d &input);
+
+/// Function to solve Sparse Ax=b
+std::tuple<bool, Eigen::VectorXd> SolveLinearSystemSparse(
+        const Eigen::SparseMatrix<double> &A,
+        const Eigen::VectorXd &b);
 
 /// Function to solve Ax=b
 std::tuple<bool, Eigen::VectorXd> SolveLinearSystemPSD(

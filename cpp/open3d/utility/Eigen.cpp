@@ -34,6 +34,39 @@
 namespace open3d {
 namespace utility {
 
+/// Function to solve Sparse Ax=b
+std::tuple<bool, Eigen::VectorXd> SolveLinearSystemSparse(
+        const Eigen::SparseMatrix<double> &A,
+        const Eigen::VectorXd &b) {
+    // PSD implies symmetric
+
+    Eigen::VectorXd x(b.rows());
+    x.setZero();
+    // TODO: avoid deprecated API SimplicialCholesky
+    Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> A_chol;
+    A_chol.compute(A);
+    if (A_chol.info() == Eigen::Success) {
+        x = A_chol.solve(b);
+        if (A_chol.info() == Eigen::Success) {
+            // Both decompose and solve are successful
+            return std::make_tuple(true, std::move(x));
+        } else {
+            LogWarning("Cholesky solve failed, switched to dense solver");
+        }
+    } else {
+        LogWarning("Cholesky decompose failed, switched to dense solver");
+    }
+    if (A_chol.info() != Eigen::Success){
+        Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> A_ldlt;
+        A_ldlt.compute(A);
+        x = A_ldlt.solve(b);
+        return std::make_tuple(true, std::move(x));
+    }
+    LogWarning("ldlt solve failed, return zero vector");
+    return std::make_tuple(true, std::move(x));
+}
+
+
 /// Function to solve Ax=b
 std::tuple<bool, Eigen::VectorXd> SolveLinearSystemPSD(
         const Eigen::MatrixXd &A,
