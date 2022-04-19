@@ -215,8 +215,7 @@ static std::tuple<Eigen::SparseMatrix<double>, Eigen::VectorXd> ComputeLinearSys
     int n_edges = (int)pose_graph.edges_.size();
     Eigen::SparseMatrix<double,Eigen::RowMajor> H(n_nodes * 6, n_nodes * 6);
     std::vector<Eigen::Triplet<double>> tripletList;
-    int reserve_nodes = (std::min)(n_nodes, 6000);
-    tripletList.reserve(4 * 36 * n_nodes * 10);
+    tripletList.reserve(4 * 36 * n_nodes * 30);
     Eigen::VectorXd b(n_nodes * 6);
     H.setZero();
     b.setZero();
