@@ -216,7 +216,6 @@ static std::tuple<Eigen::SparseMatrix<double>, Eigen::VectorXd> ComputeLinearSys
     Eigen::SparseMatrix<double,Eigen::RowMajor> H(n_nodes * 6, n_nodes * 6);
     std::vector<Eigen::Triplet<double>> tripletList;
     tripletList.resize(4 * 36 * n_edges);
-    // tripletList.reserve(4 * 36 * n_edges);
     Eigen::VectorXd b(n_nodes * 6);
     H.setZero();
     b.setZero();
@@ -243,10 +242,6 @@ static std::tuple<Eigen::SparseMatrix<double>, Eigen::VectorXd> ComputeLinearSys
         int id_j = t.target_node_id_ * 6;
         for (int r_idx = 0; r_idx < 6; r_idx++){
             for (int c_idx =0; c_idx < 6; c_idx++){
-                // tripletList.push_back(Eigen::Triplet<double>(id_i+r_idx, id_i+c_idx, Jii(r_idx, c_idx)));
-                // tripletList.push_back(Eigen::Triplet<double>(id_i+r_idx, id_j+c_idx, Jij(r_idx, c_idx)));
-                // tripletList.push_back(Eigen::Triplet<double>(id_j+r_idx, id_i+c_idx, Jji(r_idx, c_idx)));
-                // tripletList.push_back(Eigen::Triplet<double>(id_j+r_idx, id_j+c_idx, Jjj(r_idx, c_idx)));
                 int i = iter_edge*36*4+r_idx*6*4+c_idx*4;
                 tripletList[i]=Eigen::Triplet<double>(id_i+r_idx, id_i+c_idx, Jii(r_idx, c_idx));
                 tripletList[i+1]=Eigen::Triplet<double>(id_i+r_idx, id_j+c_idx, Jij(r_idx, c_idx));
