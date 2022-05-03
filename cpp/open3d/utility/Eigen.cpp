@@ -59,9 +59,9 @@ std::tuple<bool, Eigen::VectorXd> SolveLinearSystemSparseTest(
     A_cg.compute(A);
     x = A_cg.solve(b);
 
-    Eigen::saveMarket(A, "ExampleMatrix_SPD.mtx", Eigen::Symmetric); // if A is symmetric-positive-definite
-    Eigen::saveMarketVector(b, "ExampleVec_b.mtx");
-    Eigen::saveMarketVector(x, "ExampleVec_x.mtx");
+    // Eigen::saveMarket(A, "ExampleMatrix_SPD.mtx", Eigen::Symmetric); // if A is symmetric-positive-definite
+    // Eigen::saveMarketVector(b, "ExampleVec_b.mtx");
+    // Eigen::saveMarketVector(x, "ExampleVec_x.mtx");
 
     return std::make_tuple(true, std::move(x));
 }
