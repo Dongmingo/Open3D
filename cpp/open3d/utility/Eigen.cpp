@@ -28,14 +28,47 @@
 
 #include <Eigen/Geometry>
 #include <Eigen/Sparse>
+#include <unsupported/Eigen/SparseExtra>
+#include <Eigen/Cholesky>
+#include <Eigen/Jacobi>
+#include <Eigen/Householder>
+#include <Eigen/IterativeLinearSolvers>
+#include <unsupported/Eigen/IterativeSolvers>
+#include <Eigen/LU>
+#include <Eigen/SparseLU>
 
 #include "open3d/utility/Logging.h"
 
 namespace open3d {
 namespace utility {
 
-/// Function to solve Sparse Ax=b
-std::tuple<bool, Eigen::VectorXd> SolveLinearSystemSparse(
+/// Function to iterative solve Sparse Ax=b
+std::tuple<bool, Eigen::VectorXd> SolveLinearSystemSparseTest(
+        const Eigen::SparseMatrix<double> &A,
+        const Eigen::VectorXd &b) {
+    Eigen::VectorXd x(b.rows());
+    x.setZero();
+    Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> A_cg;
+    // TODO: avoid deprecated API SimplicialCholesky
+    // Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> A_cg;
+    // Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower,Eigen::IncompleteCholesky<double,Eigen::Lower>> A_cg; 
+    // Eigen::GMRES<Eigen::SparseMatrix<double>, Eigen::IncompleteLUT<double>> A_cg;
+    // Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> A_cg;
+    // Eigen::BiCGSTAB<Eigen::SparseMatrix<double>, Eigen::IncompleteLUT<double>> A_cg;
+    // Eigen::GMRES<Eigen::SparseMatrix<double>> A_cg;
+    A_cg.compute(A);
+    x = A_cg.solve(b);
+
+    Eigen::saveMarket(A, "ExampleMatrix_SPD.mtx", Eigen::Symmetric); // if A is symmetric-positive-definite
+    Eigen::saveMarketVector(b, "ExampleVec_b.mtx");
+    Eigen::saveMarketVector(x, "ExampleVec_x.mtx");
+
+    return std::make_tuple(true, std::move(x));
+}
+
+
+/// Function to direct solve Sparse Ax=b
+std::tuple<bool, Eigen::VectorXd> SolveLinearSystemSparseDirect(
         const Eigen::SparseMatrix<double> &A,
         const Eigen::VectorXd &b) {
     // PSD implies symmetric
@@ -63,7 +96,7 @@ std::tuple<bool, Eigen::VectorXd> SolveLinearSystemSparse(
         return std::make_tuple(true, std::move(x));
     }
     LogWarning("ldlt solve failed, return zero vector");
-    return std::make_tuple(true, std::move(x));
+    return std::make_tuple(false, std::move(x));
 }
 
 

@@ -38,6 +38,7 @@
 #include "open3d/utility/Logging.h"
 #include "open3d/utility/Timer.h"
 
+
 namespace open3d {
 namespace pipelines {
 namespace registration {
@@ -598,6 +599,7 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
         const GlobalOptimizationOption &option) const {
     int n_nodes = (int)pose_graph.nodes_.size();
     int n_edges = (int)pose_graph.edges_.size();
+    // int iter_th = 6 * 1000;
     double line_process_weight = ComputeLineProcessWeight(pose_graph, option);
     utility::Timer timer;
 
@@ -647,7 +649,8 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
                     "Make H_I, UpdatePosVector "
                     "time : "
                     "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+                    timer.GetDuration() / 1000.0); 
+
     timer.Start();
     std::tie(H, b) = ComputeLinearSystem(pose_graph, zeta);
     timer.Stop();
@@ -690,9 +693,20 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
 
             // Solve H_LM @ delta == b using a sparse solver
             timer.Start();
-            std::tie(solver_success, delta) = utility::SolveLinearSystemSparse(
+            // if (n_nodes * 6>iter_th){
+            //     std::tie(solver_success, delta) = utility::SolveLinearSystemSparseIter(
+            //         H_LM, b);
+            // }else{
+            //     std::tie(solver_success, delta) = utility::SolveLinearSystemSparseDirect(
+            //         H_LM, b);
+            // }
+            std::tie(solver_success, delta) = utility::SolveLinearSystemSparseTest(
                     H_LM, b);
+            // Both decompose and solve are successful
             timer.Stop();
+
+            
+
             utility::LogDebug(
                     "SolveLinearSystemSparse "
                     "time : "
