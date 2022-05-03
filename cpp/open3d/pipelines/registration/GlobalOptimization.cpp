@@ -42,7 +42,6 @@ namespace open3d {
 namespace pipelines {
 namespace registration {
 
-
 /// Definition of linear operators used for computing Jacobian matrix.
 /// If the relative transform of the two geometry is reasonably small,
 /// they can be approximated as below linearized form
@@ -94,7 +93,6 @@ static const std::vector<Eigen::Matrix4d, utility::Matrix4d_allocator>
 /// Alternatively, explicit representation that uses quaternion can be used
 /// here to replace this function. Refer to linearizeOplus() in
 /// https://github.com/RainerKuemmerle/g2o/blob/master/g2o/types/slam3d/edge_se3.cpp
-
 
 static inline Eigen::Vector6d GetLinearized6DVector(
         const Eigen::Matrix4d &input) {
@@ -209,11 +207,11 @@ static Eigen::VectorXd ComputeZeta(const PoseGraph &pose_graph) {
 ///
 /// This function focuses the case that every edge has two nodes (not hyper
 /// graph) so we have two Jacobian matrices from one constraint.
-static std::tuple<Eigen::SparseMatrix<double>, Eigen::VectorXd> ComputeLinearSystem(
-        const PoseGraph &pose_graph, const Eigen::VectorXd &zeta) {
+static std::tuple<Eigen::SparseMatrix<double>, Eigen::VectorXd>
+ComputeLinearSystem(const PoseGraph &pose_graph, const Eigen::VectorXd &zeta) {
     int n_nodes = (int)pose_graph.nodes_.size();
     int n_edges = (int)pose_graph.edges_.size();
-    Eigen::SparseMatrix<double,Eigen::RowMajor> H(n_nodes * 6, n_nodes * 6);
+    Eigen::SparseMatrix<double, Eigen::RowMajor> H(n_nodes * 6, n_nodes * 6);
     std::vector<Eigen::Triplet<double>> tripletList;
     tripletList.resize(4 * 36 * n_edges);
     Eigen::VectorXd b(n_nodes * 6);
@@ -240,13 +238,17 @@ static std::tuple<Eigen::SparseMatrix<double>, Eigen::VectorXd> ComputeLinearSys
 
         int id_i = t.source_node_id_ * 6;
         int id_j = t.target_node_id_ * 6;
-        for (int r_idx = 0; r_idx < 6; r_idx++){
-            for (int c_idx =0; c_idx < 6; c_idx++){
-                int i = iter_edge*36*4+r_idx*6*4+c_idx*4;
-                tripletList[i]=Eigen::Triplet<double>(id_i+r_idx, id_i+c_idx, Jii(r_idx, c_idx));
-                tripletList[i+1]=Eigen::Triplet<double>(id_i+r_idx, id_j+c_idx, Jij(r_idx, c_idx));
-                tripletList[i+2]=Eigen::Triplet<double>(id_j+r_idx, id_i+c_idx, Jji(r_idx, c_idx));
-                tripletList[i+3]=Eigen::Triplet<double>(id_j+r_idx, id_j+c_idx, Jjj(r_idx, c_idx));
+        for (int r_idx = 0; r_idx < 6; r_idx++) {
+            for (int c_idx = 0; c_idx < 6; c_idx++) {
+                int i = iter_edge * 36 * 4 + r_idx * 6 * 4 + c_idx * 4;
+                tripletList[i] = Eigen::Triplet<double>(
+                        id_i + r_idx, id_i + c_idx, Jii(r_idx, c_idx));
+                tripletList[i + 1] = Eigen::Triplet<double>(
+                        id_i + r_idx, id_j + c_idx, Jij(r_idx, c_idx));
+                tripletList[i + 2] = Eigen::Triplet<double>(
+                        id_j + r_idx, id_i + c_idx, Jji(r_idx, c_idx));
+                tripletList[i + 3] = Eigen::Triplet<double>(
+                        id_j + r_idx, id_j + c_idx, Jjj(r_idx, c_idx));
             }
         }
         b.block<6, 1>(id_i, 0).noalias() -=
@@ -610,10 +612,10 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
     Eigen::VectorXd zeta = ComputeZeta(pose_graph);
     timer.Stop();
     utility::LogDebug(
-                    "ComputeZeta "
-                    "time : "
-                    "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+            "ComputeZeta "
+            "time : "
+            "{:.3f} sec.",
+            timer.GetDuration() / 1000.0);
     double current_residual, new_residual;
     timer.Start();
     new_residual =
@@ -621,22 +623,22 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
     current_residual = new_residual;
     timer.Stop();
     utility::LogDebug(
-                    "ComputeResidual "
-                    "time : "
-                    "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+            "ComputeResidual "
+            "time : "
+            "{:.3f} sec.",
+            timer.GetDuration() / 1000.0);
     timer.Start();
     int valid_edges_num =
             UpdateConfidence(pose_graph, zeta, line_process_weight, option);
     timer.Stop();
     utility::LogDebug(
-                    "UpdateConfidence"
-                    "time : "
-                    "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+            "UpdateConfidence"
+            "time : "
+            "{:.3f} sec.",
+            timer.GetDuration() / 1000.0);
     timer.Start();
     Eigen::SparseMatrix<double> H_I(n_nodes * 6, n_nodes * 6);
-    for (int i=0; i<H_I.cols(); i++) {
+    for (int i = 0; i < H_I.cols(); i++) {
         H_I.coeffRef(i, i) = 1;
     }
     Eigen::SparseMatrix<double> H;
@@ -644,18 +646,18 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
     Eigen::VectorXd x = UpdatePoseVector(pose_graph);
     timer.Stop();
     utility::LogDebug(
-                    "Make H_I, UpdatePosVector "
-                    "time : "
-                    "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+            "Make H_I, UpdatePosVector "
+            "time : "
+            "{:.3f} sec.",
+            timer.GetDuration() / 1000.0);
     timer.Start();
     std::tie(H, b) = ComputeLinearSystem(pose_graph, zeta);
     timer.Stop();
     utility::LogDebug(
-                    "ComputeLinearSystem "
-                    "time : "
-                    "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+            "ComputeLinearSystem "
+            "time : "
+            "{:.3f} sec.",
+            timer.GetDuration() / 1000.0);
 
     Eigen::VectorXd H_diag = H.diagonal();
     double tau = 1e-5;
@@ -671,10 +673,10 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
     stop = stop || CheckRightTerm(b, criteria);
     timer.Stop();
     utility::LogDebug(
-                    "CheckRightTerm "
-                    "time : "
-                    "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+            "CheckRightTerm "
+            "time : "
+            "{:.3f} sec.",
+            timer.GetDuration() / 1000.0);
     if (stop) return;
 
     utility::Timer timer_overall;
@@ -691,7 +693,7 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
             // Solve H_LM @ delta == b using a sparse solver
             timer.Start();
             std::tie(solver_success, delta) = utility::SolveLinearSystemSparse(
-                    H_LM, b);
+                    H_LM, b, /* use_cuda*/ true);
             timer.Stop();
             utility::LogDebug(
                     "SolveLinearSystemSparse "
@@ -713,29 +715,29 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
                         UpdatePoseGraph(pose_graph, delta);
                 timer.Stop();
                 utility::LogDebug(
-                    "UpdatePoseGraph "
-                    "time : "
-                    "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+                        "UpdatePoseGraph "
+                        "time : "
+                        "{:.3f} sec.",
+                        timer.GetDuration() / 1000.0);
 
                 Eigen::VectorXd zeta_new;
                 timer.Start();
                 zeta_new = ComputeZeta(*pose_graph_new);
                 timer.Stop();
                 utility::LogDebug(
-                    "ComputeZeta "
-                    "time : "
-                    "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+                        "ComputeZeta "
+                        "time : "
+                        "{:.3f} sec.",
+                        timer.GetDuration() / 1000.0);
                 timer.Start();
                 new_residual = ComputeResidual(pose_graph, zeta_new,
                                                line_process_weight, option);
                 timer.Stop();
                 utility::LogDebug(
-                    "ComputeResidual "
-                    "time : "
-                    "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+                        "ComputeResidual "
+                        "time : "
+                        "{:.3f} sec.",
+                        timer.GetDuration() / 1000.0);
                 rho = (current_residual - new_residual) /
                       (delta.dot(current_lambda * delta + b) + 1e-3);
                 if (rho > 0) {
@@ -748,7 +750,7 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
                             "CheckRelativeResidualIncrement "
                             "time : "
                             "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+                            timer.GetDuration() / 1000.0);
                     if (stop) break;
                     double alpha = 1. - pow((2 * rho - 1), 3);
                     alpha = (std::min)(alpha, criteria.upper_scale_factor_);
@@ -767,7 +769,7 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
                             "UpdatePoseVector "
                             "time : "
                             "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+                            timer.GetDuration() / 1000.0);
                     timer.Start();
                     valid_edges_num = UpdateConfidence(
                             pose_graph, zeta, line_process_weight, option);
@@ -776,7 +778,7 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
                             "UpdateConfidence "
                             "time : "
                             "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+                            timer.GetDuration() / 1000.0);
                     timer.Start();
                     std::tie(H, b) = ComputeLinearSystem(pose_graph, zeta);
                     timer.Stop();
@@ -784,7 +786,7 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
                             "ComputeLinearSystem "
                             "time : "
                             "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+                            timer.GetDuration() / 1000.0);
                     timer.Start();
                     stop = stop || CheckRightTerm(b, criteria);
                     timer.Stop();
@@ -792,7 +794,7 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
                             "CheckRightTerm "
                             "time : "
                             "{:.3f} sec.",
-                    timer.GetDuration() / 1000.0);
+                            timer.GetDuration() / 1000.0);
                     if (stop) break;
                 } else {
                     current_lambda *= ni;
@@ -817,7 +819,7 @@ void GlobalOptimizationLevenbergMarquardt::OptimizePoseGraph(
                     "{:.3f} sec.",
                     iter, current_residual, valid_edges_num,
                     timer_iter.GetDuration() / 1000.0);
-                    utility::LogDebug(
+            utility::LogDebug(
                     " "
                     "time : "
                     "{:.3f} sec.",

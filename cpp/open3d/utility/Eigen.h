@@ -29,7 +29,6 @@
 #include <Eigen/Core>
 #include <Eigen/Sparse>
 #include <Eigen/StdVector>
-
 #include <tuple>
 #include <vector>
 
@@ -78,7 +77,8 @@ Eigen::Vector6d TransformMatrix4dToVector6d(const Eigen::Matrix4d &input);
 /// Function to solve Sparse Ax=b
 std::tuple<bool, Eigen::VectorXd> SolveLinearSystemSparse(
         const Eigen::SparseMatrix<double> &A,
-        const Eigen::VectorXd &b);
+        const Eigen::VectorXd &b,
+        const bool use_cuda);
 
 /// Function to solve Ax=b
 std::tuple<bool, Eigen::VectorXd> SolveLinearSystemPSD(

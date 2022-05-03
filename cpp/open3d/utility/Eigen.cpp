@@ -30,6 +30,9 @@
 #include <Eigen/Sparse>
 
 #include "open3d/utility/Logging.h"
+#ifdef BUILD_CUDA_MODULE
+#include "open3d/pipelines/registration/cusparse_cholesky_solver.h"
+#endif
 
 namespace open3d {
 namespace utility {
@@ -37,35 +40,49 @@ namespace utility {
 /// Function to solve Sparse Ax=b
 std::tuple<bool, Eigen::VectorXd> SolveLinearSystemSparse(
         const Eigen::SparseMatrix<double> &A,
-        const Eigen::VectorXd &b) {
+        const Eigen::VectorXd &b,
+        const bool use_cuda) {
     // PSD implies symmetric
 
     Eigen::VectorXd x(b.rows());
     x.setZero();
-    // TODO: avoid deprecated API SimplicialCholesky
-    Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> A_chol;
-    A_chol.compute(A);
-    if (A_chol.info() == Eigen::Success) {
-        x = A_chol.solve(b);
-        if (A_chol.info() == Eigen::Success) {
-            // Both decompose and solve are successful
-            return std::make_tuple(true, std::move(x));
-        } else {
-            LogWarning("Cholesky solve failed, switched to dense solver");
-        }
+
+    if (use_cuda) {
+#ifdef BUILD_CUDA_MODULE
+        Eigen::SparseMatrix<Scalar, Eigen::StorageOptions::RowMajor> Acsr =
+                A;  // solver supports CSR format
+        auto solver = CuSparseCholeskySolver<Scalar>::create(n);
+        solver->analyze(nnz, Acsr.outerIndexPtr(), Acsr.innerIndexPtr());
+        solver->factorize(Acsr.valuePtr());
+        solver->solve(b.data(), x.data());
+#else
+        utility::LogError("Unimplemented device.");
+#endif
     } else {
-        LogWarning("Cholesky decompose failed, switched to dense solver");
+        // TODO: avoid deprecated API SimplicialCholesky
+        Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> A_chol;
+        A_chol.compute(A);
+        if (A_chol.info() == Eigen::Success) {
+            x = A_chol.solve(b);
+            if (A_chol.info() == Eigen::Success) {
+                // Both decompose and solve are successful
+                return std::make_tuple(true, std::move(x));
+            } else {
+                LogWarning("Cholesky solve failed, switched to dense solver");
+            }
+        } else {
+            LogWarning("Cholesky decompose failed, switched to dense solver");
+        }
+        if (A_chol.info() != Eigen::Success) {
+            Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> A_ldlt;
+            A_ldlt.compute(A);
+            x = A_ldlt.solve(b);
+            return std::make_tuple(true, std::move(x));
+        }
+        LogWarning("ldlt solve failed, return zero vector");
     }
-    if (A_chol.info() != Eigen::Success){
-        Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> A_ldlt;
-        A_ldlt.compute(A);
-        x = A_ldlt.solve(b);
-        return std::make_tuple(true, std::move(x));
-    }
-    LogWarning("ldlt solve failed, return zero vector");
     return std::make_tuple(true, std::move(x));
 }
-
 
 /// Function to solve Ax=b
 std::tuple<bool, Eigen::VectorXd> SolveLinearSystemPSD(

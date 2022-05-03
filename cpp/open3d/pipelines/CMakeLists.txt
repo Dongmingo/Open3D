@@ -29,6 +29,12 @@ target_sources(pipelines PRIVATE
     registration/RobustKernel.cpp
     registration/TransformationEstimation.cpp
 )
+if (BUILD_CUDA_MODULE)
+    target_sources(pipelines PRIVATE
+        registration/cusparse_cholesky_solver.cpp
+        registration/cusparse_wrapper.cpp
+    )
+endif()
 
 open3d_show_and_abort_on_warning(pipelines)
 open3d_set_global_properties(pipelines)
