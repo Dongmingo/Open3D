@@ -49,11 +49,9 @@ std::tuple<bool, Eigen::VectorXd> SolveLinearSystemSparse(
 
     if (use_cuda) {
 #ifdef BUILD_CUDA_MODULE
-        Eigen::SparseMatrix<Scalar, Eigen::StorageOptions::RowMajor> Acsr =
-                A;  // solver supports CSR format
-        auto solver = CuSparseCholeskySolver<Scalar>::create(n);
-        solver->analyze(nnz, Acsr.outerIndexPtr(), Acsr.innerIndexPtr());
-        solver->factorize(Acsr.valuePtr());
+        auto solver = CuSparseCholeskySolver<double>::create(b.rows());
+        solver->analyze(A.nonZeros(), A.outerIndexPtr(), A.innerIndexPtr());
+        solver->factorize(A.valuePtr());
         solver->solve(b.data(), x.data());
 #else
         utility::LogError("Unimplemented device.");
