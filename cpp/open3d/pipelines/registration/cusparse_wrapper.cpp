@@ -34,7 +34,13 @@ cusparseStatus_t CUSPARSEAPI cusparseXgthr(cusparseHandle_t handle,
                                            float *xVal,
                                            const int *xInd,
                                            cusparseIndexBase_t idxBase) {
-    return cusparseSgthr(handle, nnz, y, xVal, xInd, idxBase);
+    cusparseSpVecDescr_t vecX;
+    cusparseDnVecDescr_t vecY;
+    int size = nnz;
+    cusparseCreateSpVec(&vecX, size, nnz, (void*)xInd, (void*)xVal, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F);
+    cusparseCreateDnVec(&vecY, size, (void*)y, CUDA_R_32F);
+    return cusparseGather(handle, vecY, vecX);
+    // return cusparseSgthr(handle, nnz, y, xVal, xInd, idxBase);
 }
 
 /*
@@ -47,7 +53,13 @@ cusparseStatus_t CUSPARSEAPI cusparseXgthr(cusparseHandle_t handle,
                                            double *xVal,
                                            const int *xInd,
                                            cusparseIndexBase_t idxBase) {
-    return cusparseDgthr(handle, nnz, y, xVal, xInd, idxBase);
+    cusparseSpVecDescr_t vecX;
+    cusparseDnVecDescr_t vecY;
+    int size = nnz;
+    cusparseCreateSpVec(&vecX, size, nnz, (void*)xInd, (void*)xVal, CUSPARSE_INDEX_32I, CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F);
+    cusparseCreateDnVec(&vecY, size, (void*)y, CUDA_R_64F);
+    return cusparseGather(handle, vecY, vecX);
+    // return cusparseDgthr(handle, nnz, y, xVal, xInd, idxBase);
 }
 
 cusolverStatus_t CUSOLVERAPI
